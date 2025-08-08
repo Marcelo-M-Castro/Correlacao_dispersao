@@ -6,13 +6,30 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.cluster import KMeans
+from PIL import Image
 
 # Configuração da página
 st.set_page_config(page_title="Análise de Performance", layout="wide", initial_sidebar_state="expanded")
 st.title("📊 Análise de Performance dos Agentes")
 
+# Exibe imagem de orientação antes do upload
+image = Image.open("orientacao.png")  # imagem na raiz do projeto
+st.markdown(
+    """
+    <div style="text-align: center;">
+    """,
+    unsafe_allow_html=True
+)
+st.image(image, caption="Imagem de orientação", use_column_width=True)
+st.markdown(
+    """
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
 # Upload do arquivo
-uploaded_file = st.file_uploader("Faça upload da planilha Excel (.xlsx)", type="xlsx")
+uploaded_file = st.file_uploader("📂 Faça upload da planilha Excel (.xlsx)", type="xlsx")
 
 if uploaded_file:
     # Leitura do Excel
@@ -20,19 +37,19 @@ if uploaded_file:
     st.subheader("Prévia dos dados originais")
     st.dataframe(df.head())
 
-    # --- Limpeza de colunas ---
+    # Remove colunas
     columns_to_drop = ['Mês', 'Líder', 'Agente Email','TMA', 'TMR','Nivel de Serviço (%)','RESOLUTIVIDADE (%)']
     df = df.drop(columns=[col for col in columns_to_drop if col in df.columns], errors='ignore')
     st.success(f"Colunas removidas: {columns_to_drop}")
 
-    # --- Correlação ---
+    # Correlação
     st.subheader("🔗 Mapa de Calor - Correlação")
     corr = df.corr(numeric_only=True)
     fig_corr, ax = plt.subplots(figsize=(10, 8))
     sns.heatmap(corr, annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
     st.pyplot(fig_corr)
 
-    # --- Limpeza adicional ---
+    # Limpeza adicional
     df_original = pd.read_excel(uploaded_file)
     columns_to_clean = ['NS', '% Resolvidos', '% CSAT ', '% TMPR', 'Qualidade']
     for col in columns_to_clean:
@@ -47,19 +64,15 @@ if uploaded_file:
 
     df_cleaned = df_original.dropna(subset=['ATENDIDOS', 'Qualidade (%)']).copy()
 
-    # --- K-Means ---
+    # K-Means
     st.subheader("🔵 Agrupamento (K-Means)")
     if 'ATENDIDOS' in df_cleaned.columns and 'Qualidade (%)' in df_cleaned.columns:
         X_cluster = df_cleaned[['ATENDIDOS', 'Qualidade (%)']]
         kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
         df_cleaned['cluster'] = kmeans.fit_predict(X_cluster)
         st.dataframe(df_cleaned[['ATENDIDOS', 'Qualidade (%)', 'cluster']].head())
-    else:
-        st.warning("Colunas necessárias para K-Means não encontradas.")
 
-    # --- Gráficos Interativos ---
-    st.subheader("📈 Gráficos Interativos")
-
+    # Função para gráficos com regressão
     def regressao_plot(x_col, y_col, hover_cols, titulo):
         if x_col in df_cleaned.columns and y_col in df_cleaned.columns:
             x = df_cleaned[x_col]
@@ -92,14 +105,11 @@ if uploaded_file:
                 yaxis=dict(gridcolor='gray', zerolinecolor='gray')
             )
             st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning(f"Colunas '{x_col}' ou '{y_col}' não encontradas no DataFrame.")
 
-    # Exibir os gráficos
+    # Exibe gráficos
     regressao_plot('media_dia', 'Qualidade (%)', ['Agente Email', 'Líder'], "Dispersão Média Diária vs Qualidade")
     regressao_plot('ATENDIDOS', 'Qualidade (%)', ['Agente Email', 'Líder'], "Dispersão Atendidos vs Qualidade")
     regressao_plot('ATENDIDOS', 'CSAT (%)', ['Agente Email', 'ATENDIDOS', 'TMA_seg'], "Dispersão Atendidos vs CSAT (%)")
     regressao_plot('TMA_seg', 'Qualidade (%)', ['Agente Email', 'Líder'], "Dispersão TMA (segundos) vs Qualidade")
-
 else:
-    st.info("Por favor, envie um arquivo Excel para iniciar a análise.")
+    st.info("⬆️ Por favor, envie um arquivo Excel para iniciar a análise.")
