@@ -38,7 +38,7 @@ if uploaded_file:
     st.dataframe(df.head())
 
     # Remove colunas
-    columns_to_drop = ['Mês', 'Líder', 'Agente Email','TMA', 'TMR','Nivel de Serviço (%)','RESOLUTIVIDADE (%)']
+    columns_to_drop = ['Mês', 'Líder', 'Agente Email', 'TMA', 'TMR', 'Nivel de Serviço (%)', 'RESOLUTIVIDADE (%)', 'TOTAL DE TICKETS']
     df = df.drop(columns=[col for col in columns_to_drop if col in df.columns], errors='ignore')
     st.success(f"Colunas removidas: {columns_to_drop}")
 
@@ -73,13 +73,17 @@ if uploaded_file:
         st.dataframe(df_cleaned[['ATENDIDOS', 'Qualidade (%)', 'cluster']].head())
 
     # Função para gráficos com regressão
-    def regressao_plot(x_col, y_col, hover_cols, titulo):
+    def regressao_plot(x_col, y_col, hover_cols, title, line_color='white', line_width=2, line_dash='dash'):
         if x_col in df_cleaned.columns and y_col in df_cleaned.columns:
-            x = df_cleaned[x_col]
-            y = df_cleaned[y_col]
-            slope, intercept = np.polyfit(x, y, 1)
-            linha_x = np.array([x.min(), x.max()])
-            linha_y = slope * linha_x + intercept
+            df_plot = df_cleaned[[x_col, y_col]].dropna()
+            if len(df_plot) >= 2:
+                x = df_plot[x_col]
+                y = df_plot[y_col]
+                slope, intercept = np.polyfit(x, y, 1)
+                linha_x = np.array([x.min(), x.max()])
+                linha_y = slope * linha_x + intercept
+            else:
+                linha_x = linha_y = []
 
             fig = px.scatter(
                 df_cleaned,
@@ -88,28 +92,30 @@ if uploaded_file:
                 color='Qualidade (%)' if 'Qualidade (%)' in df_cleaned.columns else None,
                 color_continuous_scale='RdYlGn',
                 hover_data=hover_cols,
-                title=titulo
+                title=title
             )
-            fig.add_trace(go.Scatter(
-                x=linha_x,
-                y=linha_y,
-                mode='lines',
-                name='Linha de Tendência',
-                line=dict(color='white', dash='dash')
-            ))
+            if len(linha_x) > 0:
+                fig.add_trace(go.Scatter(
+                    x=linha_x,
+                    y=linha_y,
+                    mode='lines',
+                    name='Linha de Tendência',
+                    line=dict(color=line_color, width=line_width, dash=line_dash)
+                ))
             fig.update_layout(
                 plot_bgcolor='#2f2f2f',
                 paper_bgcolor='#2f2f2f',
                 font_color='white',
-                xaxis=dict(gridcolor='gray', zerolinecolor='gray'),
-                yaxis=dict(gridcolor='gray', zerolinecolor='gray')
+                xaxis=dict(gridcolor='gray', zerolinecolor='gray', linecolor='gray', tickfont=dict(color='white')),
+                yaxis=dict(gridcolor='gray', zerolinecolor='gray', linecolor='gray', tickfont=dict(color='white'))
             )
             st.plotly_chart(fig, use_container_width=True)
 
     # Exibe gráficos
     regressao_plot('media_dia', 'Qualidade (%)', ['Agente Email', 'Líder'], "Dispersão Média Diária vs Qualidade")
     regressao_plot('ATENDIDOS', 'Qualidade (%)', ['Agente Email', 'Líder'], "Dispersão Atendidos vs Qualidade")
-    regressao_plot('ATENDIDOS', 'CSAT (%)', ['Agente Email', 'ATENDIDOS', 'TMA_seg'], "Dispersão Atendidos vs CSAT (%)")
+    regressao_plot('ATENDIDOS', 'CSAT (%)', ['Agente Email', 'ATENDIDOS', 'TMA_seg'], "Dispersão Atendidos vs CSAT (%)", line_color='yellow', line_width=4, line_dash=None)
     regressao_plot('TMA_seg', 'Qualidade (%)', ['Agente Email', 'Líder'], "Dispersão TMA (segundos) vs Qualidade")
+    regressao_plot('TMA_seg', 'CSAT (%)', ['Agente Email', 'ATENDIDOS', 'TMA_seg'], "Dispersão TMA (segundos) vs CSAT (%)", line_color='yellow', line_width=4, line_dash=None)
 else:
     st.info("⬆️ Por favor, envie um arquivo Excel para iniciar a análise.")
